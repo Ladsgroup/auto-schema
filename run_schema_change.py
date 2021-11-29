@@ -16,4 +16,8 @@ replicas = ['dbstore1007:3314']
 
 
 replica_set = ReplicaSet(replicas, section, dc)
-replica_set.sql_on_each_replica(command, ticket=ticket, downtime_hours=downtime_hours, should_depool=should_depool)
+replica_set.sql_on_each_replica(
+    command, ticket=ticket, downtime_hours=downtime_hours, should_depool=should_depool)
+
+# or for all dbs inside each host:
+# replica_set.sql_on_each_db_of_each_replica(command, ticket=ticket, downtime_hours=downtime_hours, should_depool=should_depool)

@@ -2,9 +2,15 @@ import sys
 import time
 import re
 
+import requests
+
 from bash import run
 
 
+# NOTE: Hosts here are the same sense of instance.
+# Meaning an actual host can have multiple of them
+# Do not shutdown or general actions using this class on a
+# multiinstance host
 class Host(object):
     def __init__(self, host, section):
         self.host = host
@@ -14,6 +20,7 @@ class Host(object):
         else:
             self.dc = 'codfw'
         self.fqn = '{}.{}.wmnet'.format(host.split(':')[0], self.dc)
+        self.dbs = []
 
     def run_sql(self, sql):
         args = '-h{} -P{}'.format(self.host.split(':')[0], self.host.split(':')[
@@ -86,6 +93,30 @@ class Host(object):
 
     def downtime(self, ticket, hours):
         run('cookbook sre.hosts.downtime --hours {} -r "Maintenance {}" {}'.format(hours, ticket, self.fqn))
-    
+
     def has_replicas(self):
         return self.run_sql('show slave hosts;').strip() != ''
+
+    def get_replicas(self):
+        res = self.run_sql('show slave hosts;')
+        return re.findall(r'(\S+)\.(?:eqiad|codfw)\.wmnet\s*(\d+)', res)
+
+    def get_dbs(self):
+        if not self.dbs:
+            if self.section.startswith('s'):
+                url = 'https://noc.wikimedia.org/conf/dblists/{}.dblist'.format(
+                    self.section)
+                wikis = [i.strip() for i in requests.get(url).text.split(
+                    '\n') if not i.startswith('#') and i.strip()]
+                self.dbs = wikis
+            else:
+                # TODO: Build a way to get dbs of es and pc, etc.
+                pass
+
+        return self.dbs
+
+    def run_sql_per_db(self, sql):
+        res = ''
+        for db in self.get_dbs():
+            res += self.run_sql('use {}; '.format(db) + sql)
+        return res

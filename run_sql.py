@@ -9,4 +9,5 @@ replicas = None
 
 
 replica_set = ReplicaSet(replicas, section, dc)
-replica_set.sql_on_each_replica(command, ticket=None, downtime_hours=None, should_depool=None)
+replica_set.sql_on_each_replica(
+    command, ticket=None, downtime_hours=None, should_depool=None)

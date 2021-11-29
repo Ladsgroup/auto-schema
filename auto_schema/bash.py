@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 import re
 
+
 def run(command):
     print(datetime.fromtimestamp(time.time()), command)
     if '--run' in sys.argv:
@@ -36,7 +37,7 @@ def run(command):
             print(stdout)
         else:
             stdout = ''
-        
+
         output = stdout
         if stderr_cleaned:
             output += '\nerror:\n' + stderr

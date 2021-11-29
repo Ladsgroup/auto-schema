@@ -15,12 +15,9 @@ if not replicas:
 
 
 for replica in replicas:
-    # TODO: Make sure it handles replicass with replicas (sanitarium master)
-    # properly
     db = Host(replica, section)
     should_depool = True
 
-    # don't depool replicas that are not pooled in the first place (dbstore, backup source, etc.)
     if replica not in pooled_replicas:
         should_depool = False
 
