@@ -20,6 +20,8 @@ class Db(object):
                                   1]) if ':' in self.replica else '-h' + self.replica
         if '"' in sql:
             sql = sql.replace('"', '\\"')
+        if '`' in sql:
+            sql = sql.replace('`', '\\`')
         if not sql.strip().endswith(';'):
             sql += ';'
         return run('mysql.py {} -e "{}"'.format(args, sql))
