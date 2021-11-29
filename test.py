@@ -1,5 +1,5 @@
-from config import get_replicas
-from db_actions import Db
+from auto_schema.config import get_replicas
+from auto_schema.db_actions import Db
 
 dc = 'eqiad'
 section = 's4'
