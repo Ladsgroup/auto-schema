@@ -1,14 +1,8 @@
 from auto_schema.config import get_replicas
-from auto_schema.db_actions import Db
+from auto_schema.host import Host
 
 dc = 'eqiad'
 section = 's4'
-shouldDepool = True
-downtimeHours = 4
-shouldDowntime = True
-ticket = 'T296143'
-# Don't add set session sql_log_bin=0;
-command = 'OPTIMIZE TABLE commonswiki.image;'
 replica = 'db1142'
 
 if not replica:
@@ -18,5 +12,5 @@ else:
 for replica in replicas:
     # TODO: Make sure it handles replicass with replicas (sanitarium master,
     # cloud, etc.) properly
-    db = Db(replica, section)
-    print(db.has_traffic())
+    db = Host(replica, section)
+    print(replica, db.has_replicas())

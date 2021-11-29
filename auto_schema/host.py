@@ -5,19 +5,19 @@ import re
 from bash import run
 
 
-class Db(object):
-    def __init__(self, replica, section):
-        self.replica = replica
+class Host(object):
+    def __init__(self, host, section):
+        self.host = host
         self.section = section
-        if re.findall(r'\w1\d{3}', replica):
+        if re.findall(r'\w1\d{3}', host):
             self.dc = 'eqiad'
         else:
             self.dc = 'codfw'
-        self.fqn = '{}.{}.wmnet'.format(replica.split(':')[0], self.dc)
+        self.fqn = '{}.{}.wmnet'.format(host.split(':')[0], self.dc)
 
     def run_sql(self, sql):
-        args = '-h{} -P{}'.format(self.replica.split(':')[0], self.replica.split(':')[
-                                  1]) if ':' in self.replica else '-h' + self.replica
+        args = '-h{} -P{}'.format(self.host.split(':')[0], self.host.split(':')[
+                                  1]) if ':' in self.host else '-h' + self.host
         if '"' in sql:
             sql = sql.replace('"', '\\"')
         if '`' in sql:
@@ -33,8 +33,8 @@ class Db(object):
 
     def depool(self, ticket):
         # TODO: check if it's depoolable
-        run('dbctl instance {} depool'.format(self.replica))
-        run('dbctl config commit -b -m "Depooling {} ({})"'.format(self.replica, ticket))
+        run('dbctl instance {} depool'.format(self.host))
+        run('dbctl config commit -b -m "Depooling {} ({})"'.format(self.host, ticket))
         while True:
             if self.has_traffic() and '--run' in sys.argv:
                 print('Sleeping for the traffic to drain')
@@ -78,11 +78,14 @@ class Db(object):
                 time.sleep(60)
 
         for percent in [10, 25, 75, 100]:
-            run('dbctl instance {} pool -p {}'.format(self.replica, percent))
-            run('dbctl config commit -b -m "After maintenance {} ({})"'.format(self.replica, ticket))
+            run('dbctl instance {} pool -p {}'.format(self.host, percent))
+            run('dbctl config commit -b -m "After maintenance {} ({})"'.format(self.host, ticket))
             if '--run' in sys.argv and percent != 100:
                 print('Waiting for the next round')
                 time.sleep(900)
 
     def downtime(self, ticket, hours):
         run('cookbook sre.hosts.downtime --hours {} -r "Maintenance {}" {}'.format(hours, ticket, self.fqn))
+    
+    def has_replicas(self):
+        return self.run_sql('show slave hosts;').strip() != ''

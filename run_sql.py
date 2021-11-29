@@ -1,28 +1,12 @@
-import sys
-
-from auto_schema.config import get_replicas
-from auto_schema.db_actions import Db
+from auto_schema.replica_set import ReplicaSet
 
 dc = 'eqiad'
 section = 's5'
-downtime_hours = 4
-ticket = 'T249683'
 # Don't add set session sql_log_bin=0;
-# TODO: Make it discover databases.
 command = 'REVOKE DROP ON \\`%wik%\\`.* FROM wikiadmin@\'10.%\';'
 # DO NOT FORGET to set the right port if it's not 3306
 replicas = None
-pooled_replicas = get_replicas(dc, section)
-
-if not replicas:
-    replicas = pooled_replicas
 
 
-for replica in replicas:
-    # TODO: Make sure it handles replicass with replicas (sanitarium master)
-    # properly
-    db = Db(replica, section)
-    res = db.run_sql('set session sql_log_bin=0; ' + command)
-    if 'error' in res.lower():
-        print('PANIC: Schema change errored. Not repooling')
-        sys.exit()
+replica_set = ReplicaSet(replicas, section, dc)
+replica_set.sql_on_each_replica(command, ticket=None, downtime_hours=None, should_depool=None)

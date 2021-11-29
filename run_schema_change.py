@@ -1,7 +1,4 @@
-import sys
-
-from auto_schema.config import get_replicas
-from auto_schema.db_actions import Db
+from auto_schema.replica_set import ReplicaSet
 
 dc = 'eqiad'
 section = 's4'
@@ -13,30 +10,10 @@ ticket = 'T296143'
 # TODO: Make it discover databases.
 command = 'OPTIMIZE TABLE commonswiki.image;'
 # DO NOT FORGET to set the right port if it's not 3306
+# Use None instead of [] to get all pooled replicas
+# Note: It ignores any replicas that have replicas
 replicas = ['dbstore1007:3314']
-pooled_replicas = get_replicas(dc, section)
-
-if not replicas:
-    replicas = pooled_replicas
 
 
-for replica in replicas:
-    # TODO: Make sure it handles replicass with replicas (sanitarium master)
-    # properly
-    db = Db(replica, section)
-    should_depool_this_db = should_depool
-
-    # don't depool replicas that are not pooled in the first place (dbstore, backup source, etc.)
-    if replica not in pooled_replicas:
-        should_depool_this_db = False
-
-    if should_downtime:
-        db.downtime(ticket, str(downtime_hours))
-    if should_depool_this_db:
-        db.depool(ticket)
-    res = db.run_sql('set session sql_log_bin=0; ' + command)
-    if 'error' in res.lower():
-        print('PANIC: Schema change errored. Not repooling')
-        sys.exit()
-    if should_depool_this_db:
-        db.repool(ticket)
+replica_set = ReplicaSet(replicas, section, dc)
+replica_set.sql_on_each_replica(command, ticket=ticket, downtime_hours=downtime_hours, should_depool=should_depool)

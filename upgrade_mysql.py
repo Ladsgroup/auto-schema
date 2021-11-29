@@ -4,7 +4,7 @@ import sys
 import time
 
 from auto_schema.config import get_replicas
-from auto_schema.db_actions import Db
+from auto_schema.host import Host
 
 dc = 'eqiad'
 section = 's4'
@@ -13,13 +13,14 @@ ticket = 'T296143'
 
 for replica in get_replicas(dc, section):
     # TODO: Handle multiinstance
-    db = Db(replica, section)
-    db.downtime(ticket, '24')
+    db = Host(replica, section)
+    db.downtime(ticket, 24)
     db.depool(ticket)
     db.run_sql('stop slave; SET GLOBAL innodb_buffer_pool_dump_at_shutdown = OFF;')
     db.run_on_host('systemctl stop mariadb')
     db.run_on_host('apt full-upgrade -y')
     db.run_on_host('umount /srv')
+    db.run_on_host('swapoff -a')
     db.run_on_host('reboot')
     if '--run' in sys.argv:
         time.sleep(900)
