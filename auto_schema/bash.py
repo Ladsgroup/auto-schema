@@ -1,8 +1,8 @@
+import re
 import subprocess
 import sys
 import time
 from datetime import datetime
-import re
 
 
 def run(command):

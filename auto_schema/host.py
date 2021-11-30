@@ -1,10 +1,8 @@
+import re
 import sys
 import time
-import re
 
-import requests
-
-from bash import run
+from .bash import run
 
 
 # NOTE: Hosts here are the same sense of instance.
@@ -100,23 +98,3 @@ class Host(object):
     def get_replicas(self):
         res = self.run_sql('show slave hosts;')
         return re.findall(r'(\S+)\.(?:eqiad|codfw)\.wmnet\s*(\d+)', res)
-
-    def get_dbs(self):
-        if not self.dbs:
-            if self.section.startswith('s'):
-                url = 'https://noc.wikimedia.org/conf/dblists/{}.dblist'.format(
-                    self.section)
-                wikis = [i.strip() for i in requests.get(url).text.split(
-                    '\n') if not i.startswith('#') and i.strip()]
-                self.dbs = wikis
-            else:
-                # TODO: Build a way to get dbs of es and pc, etc.
-                pass
-
-        return self.dbs
-
-    def run_sql_per_db(self, sql):
-        res = ''
-        for db in self.get_dbs():
-            res += self.run_sql('use {}; '.format(db) + sql)
-        return res

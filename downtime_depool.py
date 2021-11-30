@@ -1,5 +1,3 @@
-import sys
-
 from auto_schema.config import get_replicas
 from auto_schema.host import Host
 
