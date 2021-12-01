@@ -5,9 +5,9 @@ from .replica_set import ReplicaSet
 
 
 class SchemaChange(object):
-    def __init__(self, replicas, section, dc, command, check,
+    def __init__(self, replicas, section, command, check,
                  all_dbs, ticket, downtime_hours, should_depool):
-        self.replica_set = ReplicaSet(replicas, section, dc)
+        self.replica_set = ReplicaSet(replicas, section)
         self.command = command
         self.ticket = ticket
         self.downtime_hours = downtime_hours

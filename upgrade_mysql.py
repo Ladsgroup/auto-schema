@@ -3,15 +3,19 @@
 import sys
 import time
 
-from auto_schema.config import get_replicas
+from auto_schema.config import Config
 from auto_schema.host import Host
 
 dc = 'eqiad'
 section = 's4'
 ticket = 'T296143'
+replicas = []
 
+config = Config(dc)
+if not replicas:
+    replicas = config.get_replicas(section)
 
-for replica in get_replicas(dc, section):
+for replica in replicas:
     # TODO: Handle multiinstance
     db = Host(replica, section)
     db.downtime(ticket, 24)

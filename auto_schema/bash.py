@@ -7,7 +7,7 @@ from datetime import datetime
 
 def run(command):
     print(datetime.fromtimestamp(time.time()), command)
-    if '--run' in sys.argv:
+    if '--run' in sys.argv or 'show slave' in command:
         if command.startswith(
                 'dbctl ') and not command.startswith('dbctl config '):
             diff_res = 'Something'

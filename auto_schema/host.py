@@ -27,6 +27,8 @@ class Host(object):
             sql = sql.replace('"', '\\"')
         if '`' in sql:
             sql = sql.replace('`', '\\`')
+        if '\n' in sql:
+            sql = sql.replace('\n', ' ')
         if not sql.strip().endswith(';'):
             sql += ';'
         return run('mysql.py {} -e "{}"'.format(args, sql))
@@ -89,12 +91,26 @@ class Host(object):
                 print('Waiting for the next round')
                 time.sleep(900)
 
-    def downtime(self, ticket, hours):
-        run('cookbook sre.hosts.downtime --hours {} -r "Maintenance {}" {}'.format(hours, ticket, self.fqn))
+    def downtime(self, ticket, hours, more_to_downtime=[]):
+        more_to_downtime.append(self)
+        hosts = ','.join([i.fqn for i in more_to_downtime])
+        run('cookbook sre.hosts.downtime --hours {} -r "Maintenance {}" {}'.format(hours, ticket, hosts))
 
     def has_replicas(self):
         return self.run_sql('show slave hosts;').strip() != ''
 
-    def get_replicas(self):
+    def get_replicas(self, recursive=False):
         res = self.run_sql('show slave hosts;')
-        return re.findall(r'(\S+)\.(?:eqiad|codfw)\.wmnet\s*(\d+)', res)
+        hosts = [
+            Host('{}:{}'.format(i[0], i[1]), self.section)
+            for i in re.findall(r'(\S+)\.(?:eqiad|codfw)\.wmnet\s*(\d+)', res)
+        ]
+        if not recursive:
+            return hosts
+        replicas_to_check = hosts.copy()
+        while replicas_to_check:
+            replica_replicas = replicas_to_check.pop().get_replicas(False)
+            hosts += replica_replicas.copy()
+            replicas_to_check += replica_replicas.copy()
+
+        return hosts

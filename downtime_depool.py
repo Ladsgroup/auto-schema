@@ -1,4 +1,4 @@
-from auto_schema.config import get_replicas
+from auto_schema.config import Config
 from auto_schema.host import Host
 
 dc = 'eqiad'
@@ -6,10 +6,12 @@ section = 's8'
 downtime_hours = 4
 ticket = 'T296274'
 replicas = ['db1177']
-pooled_replicas = get_replicas(dc, section)
+
+config = Config(dc)
+pooled_replicas = config.get_replicas(section)
 
 if not replicas:
-    replicas = pooled_replicas
+    replicas = config.get_replicas(section)
 
 
 for replica in replicas:

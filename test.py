@@ -1,4 +1,4 @@
-from auto_schema.config import get_replicas
+from auto_schema.config import Config
 from auto_schema.host import Host
 from auto_schema.replica_set import ReplicaSet
 
@@ -6,14 +6,15 @@ dc = 'eqiad'
 section = 's4'
 replica = None
 
+
+config = Config(dc)
 if not replica:
-    replicas = get_replicas(dc, section)
+    replicas = config.get_replicas(section) + ['db1138:3306'] + ['db1138']
 else:
     replicas = [replica]
 for replica in replicas:
     db = Host(replica, section)
-    print(replica, db.get_dbs())
 
-replica_set = ReplicaSet(replicas, section, dc)
-replica_set.sql_on_each_db_of_each_replica(
-    'desc image;', ticket=None, downtime_hours=None, should_depool=None)
+replica_set = ReplicaSet(replicas, section)
+for host in replica_set._per_replica_gen(None, None, None):
+    print(replica_set.is_master_of_active_dc(host))

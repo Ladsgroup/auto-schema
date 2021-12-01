@@ -2,18 +2,22 @@ import sys
 
 import requests
 
-from .config import get_replicas
+from .config import Config
 from .db import Db
 from .host import Host
 
 
 class ReplicaSet(object):
-    def __init__(self, replicas, section, dc):
+    def __init__(self, replicas, section):
+        config = Config()
         if replicas is None:
-            replicas = get_replicas(dc, section)
+            replicas = config.get_replicas(section)
         self.replicas = replicas
         self.section = section
-        self.pooled_replicas = get_replicas(dc, section)
+        self.pooled_replicas = config.get_replicas(section)
+        self.section_masters = config.get_section_masters(section)
+        # TODO: Add a check to avoid running schema change on master of another
+        # section
         self.dbs = []
 
     def sql_on_each_replica(self, sql, ticket=None,
@@ -24,7 +28,11 @@ class ReplicaSet(object):
                 if check(host):
                     print('Already applied, skipping')
                     continue
-            res = host.run_sql('set session sql_log_bin=0; ' + sql)
+            if not host.has_replicas() or self.is_master_of_active_dc(host):
+                sql = 'set session sql_log_bin=0; ' + sql
+
+            res = host.run_sql(sql)
+
             if 'error' in res.lower():
                 print('PANIC: Schema change errored. Not repooling and stopping')
                 sys.exit()
@@ -36,20 +44,21 @@ class ReplicaSet(object):
             self, sql, ticket=None, should_depool=True, downtime_hours=4, check=None):
         for host in self._per_replica_gen(
                 ticket, should_depool, downtime_hours):
-            res = self.run_sql_per_db(
-                host, 'set session sql_log_bin=0; ' + sql, check)
+            if not host.has_replicas() or self.is_master_of_active_dc(host):
+                sql = 'set session sql_log_bin=0; ' + sql
+
+            res = self.run_sql_per_db(host, sql, check)
+
             if 'error' in res.lower():
                 print('PANIC: Schema change errored. Not repooling')
                 sys.exit()
 
     def _per_replica_gen(self, ticket, should_depool, downtime_hours):
         for replica in self.replicas:
-            # TODO: Make sure it handles replicass with replicas (sanitarium master)
-            # properly
             host = Host(replica, self.section)
+            replicas_to_downtime = []
             if host.has_replicas():
-                print('Ignoring {} as it has hanging replicas'.format(replica))
-                if '--run' in sys.argv:
+                if not self._handle_host_with_replicas(host):
                     continue
             should_depool_this_host = should_depool
 
@@ -58,8 +67,15 @@ class ReplicaSet(object):
             if replica not in self.pooled_replicas:
                 should_depool_this_host = False
 
+            # never depool the master:
+            if replica in self.section_masters:
+                should_depool_this_host = False
+
             if downtime_hours:
-                host.downtime(ticket, str(downtime_hours))
+                host.downtime(
+                    ticket,
+                    str(downtime_hours),
+                    replicas_to_downtime)
             if should_depool_this_host:
                 host.depool(ticket)
 
@@ -95,3 +111,28 @@ class ReplicaSet(object):
                     print('Schema change was not applied, panicking')
                     res += 'Error: Schema change was not applied, panicking'
         return res
+
+    def is_master_of_active_dc(self, host):
+        # TODO: Automatic discovery of active dc
+        active_dc = 'eqiad'
+        if active_dc != host.dc:
+            return False
+        if host.host.replace(':3306', '') not in [i.replace(
+                ':3306', '') for i in self.section_masters]:
+            return False
+        return True
+
+    def _handle_host_with_replicas(self, host):
+        if not self.is_master_of_active_dc(host):
+            replicas_to_downtime = host.get_replicas(recursive=True)
+        if '--include-masters' not in sys.argv:
+            question_mark = input('This host has these hanging replicas: {}, '
+                                  'Are you sure you want to continue? (y or yes)'.format(','.join(replicas_to_downtime))).lower().strip()
+            if question_mark in ['y', 'yes', 'si',
+                                 'ja'] and '--run' in sys.argv:
+                print(
+                    'Ignoring {} as it has hanging replicas'.format(
+                        host.host))
+                return False
+
+        return True
